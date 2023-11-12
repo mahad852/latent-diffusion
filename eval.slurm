@@ -20,4 +20,4 @@ export PYTHONNOUSERSITE=1
 echo "include-system-site-packages=false" >> $CONDA_PREFIX/pyvenv.cfg
 export PYTHONPATH=${PYTHONPATH}:${HOME}/.local/lib/python3.8/site-packages
 
-python eval_coco.py--ddim_eta 0.0 --n_samples 4 --n_iter 4 --scale 5.0  --ddim_steps 250
+python eval_coco.py --ddim_eta 0.0 --n_samples 4 --n_iter 4 --scale 5.0  --ddim_steps 250
