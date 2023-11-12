@@ -70,7 +70,7 @@ def generate_image(model, sampler, outpath, prompt, out_filename, scale, n_sampl
 
                 for x_sample in x_samples_ddim:
                     x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
-                    Image.fromarray(x_sample.astype(np.uint8)).save(os.path.join(sample_path, out_filename))
+                    Image.fromarray(x_sample.astype(np.uint8)).save(os.path.join(sample_path, out_filename.split('.')[0] + base_count + out_filename.split('.')[1]))
                     base_count += 1
                 all_samples.append(x_samples_ddim)
 
@@ -82,7 +82,7 @@ def generate_image(model, sampler, outpath, prompt, out_filename, scale, n_sampl
 
     # to image
     grid = 255. * rearrange(grid, 'c h w -> h w c').cpu().numpy()
-    Image.fromarray(grid.astype(np.uint8)).save(os.path.join(outpath, f'{prompt.replace(" ", "-")}.png'))
+    Image.fromarray(grid.astype(np.uint8)).save(os.path.join(outpath, out_filename))
 
     print(f"Your samples are ready and waiting four you here: \n{outpath} \nEnjoy.")
 
