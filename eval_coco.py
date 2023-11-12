@@ -19,8 +19,9 @@ DATASET_PATH = '/lustre/fs1/groups/course.cap6411/Dataset/coco/'
 def load_captions(set = 'val'):
     annotation_file_name = 'captions_' + set + '2017.json'
     annotation_file_path = os.path.join(DATASET_PATH, 'annotations', annotation_file_name)
-
-    return json.load(annotation_file_path)
+    
+    with open(annotation_file_path) as f:
+        return json.load(f)
     
 def get_image_path(image_file_name, set = 'val'):
     return os.path.join(DATASET_PATH, set + '2017', image_file_name)
@@ -204,5 +205,5 @@ if __name__ == "__main__":
                        H, 
                        W)
     
-    
+
 
