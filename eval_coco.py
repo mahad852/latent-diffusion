@@ -1,0 +1,208 @@
+import json
+import os
+
+import argparse, os, sys, glob
+import torch
+import numpy as np
+from omegaconf import OmegaConf
+from PIL import Image
+from tqdm import tqdm, trange
+from einops import rearrange
+from torchvision.utils import make_grid
+
+from ldm.util import instantiate_from_config
+from ldm.models.diffusion.ddim import DDIMSampler
+from ldm.models.diffusion.plms import PLMSSampler
+
+DATASET_PATH = '/lustre/fs1/groups/course.cap6411/Dataset/coco/'
+
+def load_captions(set = 'val'):
+    annotation_file_name = 'captions_' + set + '2017.json'
+    annotation_file_path = os.path.join(DATASET_PATH, 'annotations', annotation_file_name)
+
+    return json.load(annotation_file_path)
+    
+def get_image_path(image_file_name, set = 'val'):
+    return os.path.join(DATASET_PATH, set + '2017', image_file_name)
+
+def generate_image(model, sampler, outpath, prompt, out_filename, scale, n_samples, ddim_eta, ddim_steps, n_iter, H, W):
+    sample_path = os.path.join(outpath, "samples")
+    os.makedirs(sample_path, exist_ok=True)
+    base_count = len(os.listdir(sample_path))
+
+    all_samples=list()
+    with torch.no_grad():
+        with model.ema_scope():
+            uc = None
+            if scale != 1.0:
+                uc = model.get_learned_conditioning(n_samples * [""])
+            for n in trange(n_iter, desc="Sampling"):
+                c = model.get_learned_conditioning(n_samples * [prompt])
+                shape = [4, H//8, W//8]
+                samples_ddim, _ = sampler.sample(S=ddim_steps,
+                                                 conditioning=c,
+                                                 batch_size=n_samples,
+                                                 shape=shape,
+                                                 verbose=False,
+                                                 unconditional_guidance_scale=scale,
+                                                 unconditional_conditioning=uc,
+                                                 eta=ddim_eta)
+
+                x_samples_ddim = model.decode_first_stage(samples_ddim)
+                x_samples_ddim = torch.clamp((x_samples_ddim+1.0)/2.0, min=0.0, max=1.0)
+
+                for x_sample in x_samples_ddim:
+                    x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
+                    Image.fromarray(x_sample.astype(np.uint8)).save(os.path.join(sample_path, out_filename))
+                    base_count += 1
+                all_samples.append(x_samples_ddim)
+
+
+    # additionally, save as grid
+    grid = torch.stack(all_samples, 0)
+    grid = rearrange(grid, 'n b c h w -> (n b) c h w')
+    grid = make_grid(grid, nrow=n_samples)
+
+    # to image
+    grid = 255. * rearrange(grid, 'c h w -> h w c').cpu().numpy()
+    Image.fromarray(grid.astype(np.uint8)).save(os.path.join(outpath, f'{prompt.replace(" ", "-")}.png'))
+
+    print(f"Your samples are ready and waiting four you here: \n{outpath} \nEnjoy.")
+
+    
+def get_image_info_dict():
+    set = 'val'
+    image_info_dict = {}
+    annotations_obj = load_captions(set)
+    
+    for ann_obj in  annotations_obj['images']:
+        image_info_dict[ann_obj['id']] = {
+            'file_path' : get_image_path(ann_obj['file_name']),
+            'caption' : annotations_obj['captions'][ann_obj['id']],
+            'file_name' : ann_obj['file_name']
+        }
+    
+    return image_info_dict
+
+def load_model_from_config(config, ckpt, verbose=False):
+    print(f"Loading model from {ckpt}")
+    pl_sd = torch.load(ckpt, map_location="cpu")
+    sd = pl_sd["state_dict"]
+    model = instantiate_from_config(config.model)
+    m, u = model.load_state_dict(sd, strict=False)
+    if len(m) > 0 and verbose:
+        print("missing keys:")
+        print(m)
+    if len(u) > 0 and verbose:
+        print("unexpected keys:")
+        print(u)
+
+    model.cuda()
+    model.eval()
+    return model
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--outdir",
+        type=str,
+        nargs="?",
+        help="dir to write results to",
+        default="outputs/txt2img-samples"
+    )
+    parser.add_argument(
+        "--ddim_steps",
+        type=int,
+        default=200,
+        help="number of ddim sampling steps",
+    )
+
+    parser.add_argument(
+        "--plms",
+        action='store_true',
+        help="use plms sampling",
+    )
+
+    parser.add_argument(
+        "--ddim_eta",
+        type=float,
+        default=0.0,
+        help="ddim eta (eta=0.0 corresponds to deterministic sampling",
+    )
+    parser.add_argument(
+        "--n_iter",
+        type=int,
+        default=1,
+        help="sample this often",
+    )
+
+    parser.add_argument(
+        "--H",
+        type=int,
+        default=256,
+        help="image height, in pixel space",
+    )
+
+    parser.add_argument(
+        "--W",
+        type=int,
+        default=256,
+        help="image width, in pixel space",
+    )
+
+    parser.add_argument(
+        "--n_samples",
+        type=int,
+        default=4,
+        help="how many samples to produce for the given prompt",
+    )
+
+    parser.add_argument(
+        "--scale",
+        type=float,
+        default=5.0,
+        help="unconditional guidance scale: eps = eps(x, empty) + scale * (eps(x, cond) - eps(x, empty))",
+    )
+    opt = parser.parse_args()
+
+
+    config = OmegaConf.load("configs/latent-diffusion/txt2img-1p4B-eval.yaml")  # TODO: Optionally download from same location as ckpt and chnage this logic
+    model = load_model_from_config(config, "models/ldm/text2img-large/model.ckpt")  # TODO: check path
+
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    model = model.to(device)
+
+    if opt.plms:
+        sampler = PLMSSampler(model)
+    else:
+        sampler = DDIMSampler(model)
+
+    os.makedirs(opt.outdir, exist_ok=True)
+    outpath = opt.outdir
+
+    scale = opt.scale
+    n_samples = opt.n_samples
+    ddim_eta = opt.ddim_eta
+    ddim_steps = opt.ddim_steps
+    n_iter = opt.n_iter
+    H, W = opt.H, opt.W
+
+    image_info_dict = get_image_info_dict()
+    for id in image_info_dict.keys():
+        generate_image(model, 
+                       sampler, 
+                       outpath, 
+                       image_info_dict[id]['caption'], 
+                       image_info_dict[id]['file_name'], 
+                       scale, 
+                       n_samples, 
+                       ddim_eta, 
+                       ddim_steps, 
+                       n_iter, 
+                       H, 
+                       W)
+    
+    
+
