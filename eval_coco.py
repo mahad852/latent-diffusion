@@ -76,12 +76,14 @@ def get_image_info_dict():
     image_info_dict = {}
     annotations_obj = load_captions(set)
     
-    for ann_obj in  annotations_obj['images']:
-        image_info_dict[ann_obj['id']] = {
-            'file_path' : get_image_path(ann_obj['file_name']),
-            'caption' : annotations_obj['captions'][ann_obj['id']],
-            'file_name' : ann_obj['file_name']
+    for images_obj in  annotations_obj['images']:
+        image_info_dict[images_obj['id']] = {
+            'file_path' : get_image_path(images_obj['file_name']),
+            'file_name' : images_obj['file_name']
         }
+    
+    for ann_obj in annotations_obj['annotations']:
+        image_info_dict[ann_obj['image_id']]['caption'] = ann_obj['caption'],
     
     return image_info_dict
 
