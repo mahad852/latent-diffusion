@@ -26,6 +26,22 @@ def load_captions(set = 'val'):
 def get_image_path(image_file_name, set = 'val'):
     return os.path.join(DATASET_PATH, set + '2017', image_file_name)
 
+def get_image_info_dict():
+    set = 'val'
+    image_info_dict = {}
+    annotations_obj = load_captions(set)
+    
+    for images_obj in  annotations_obj['images']:
+        image_info_dict[images_obj['id']] = {
+            'file_path' : get_image_path(images_obj['file_name']),
+            'file_name' : images_obj['file_name']
+        }
+    
+    for ann_obj in annotations_obj['annotations']:
+        image_info_dict[ann_obj['image_id']]['caption'] = ann_obj['caption']
+    
+    return image_info_dict
+
 def generate_image(model, sampler, outpath, prompt, out_filename, scale, n_samples, ddim_eta, ddim_steps, n_iter, H, W):
     sample_path = os.path.join(outpath, "samples")
     os.makedirs(sample_path, exist_ok=True)
@@ -69,23 +85,6 @@ def generate_image(model, sampler, outpath, prompt, out_filename, scale, n_sampl
     Image.fromarray(grid.astype(np.uint8)).save(os.path.join(outpath, f'{prompt.replace(" ", "-")}.png'))
 
     print(f"Your samples are ready and waiting four you here: \n{outpath} \nEnjoy.")
-
-    
-def get_image_info_dict():
-    set = 'val'
-    image_info_dict = {}
-    annotations_obj = load_captions(set)
-    
-    for images_obj in  annotations_obj['images']:
-        image_info_dict[images_obj['id']] = {
-            'file_path' : get_image_path(images_obj['file_name']),
-            'file_name' : images_obj['file_name']
-        }
-    
-    for ann_obj in annotations_obj['annotations']:
-        image_info_dict[ann_obj['image_id']]['caption'] = ann_obj['caption'],
-    
-    return image_info_dict
 
 def load_model_from_config(config, ckpt, verbose=False):
     print(f"Loading model from {ckpt}")
@@ -194,7 +193,6 @@ if __name__ == "__main__":
 
     image_info_dict = get_image_info_dict()
     for id in image_info_dict.keys():
-        print(image_info_dict[id]['caption'])
         generate_image(model, 
                        sampler, 
                        outpath, 
