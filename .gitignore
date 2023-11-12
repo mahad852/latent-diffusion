@@ -3,3 +3,4 @@ captions_val2017.json
 *.jpg
 *.jpeg
 *.webp
+*.out
