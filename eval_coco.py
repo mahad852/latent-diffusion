@@ -70,7 +70,8 @@ def generate_image(model, sampler, outpath, prompt, out_filename, scale, n_sampl
 
                 for x_sample in x_samples_ddim:
                     x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
-                    Image.fromarray(x_sample.astype(np.uint8)).save(os.path.join(sample_path, out_filename.split('.')[0] + base_count + out_filename.split('.')[1]))
+                    Image.fromarray(x_sample.astype(np.uint8)).save(os.path.join(sample_path, 
+                                                                                 out_filename.split('.')[0] + '_' + str(base_count) + out_filename.split('.')[1]))
                     base_count += 1
                 all_samples.append(x_samples_ddim)
 
