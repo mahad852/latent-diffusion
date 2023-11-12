@@ -194,6 +194,7 @@ if __name__ == "__main__":
 
     image_info_dict = get_image_info_dict()
     for id in image_info_dict.keys():
+        print(image_info_dict[id]['caption'])
         generate_image(model, 
                        sampler, 
                        outpath, 
