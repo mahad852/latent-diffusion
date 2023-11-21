@@ -49,6 +49,10 @@ pip install 'torchmetrics<0.8'
 pip install transformers==4.12
 pip install kornia
 pip install tensorboard
+
+pip install pytorch-fid
+
+conda deactivate
 ```
 
 # Pretrained Models
@@ -143,6 +147,15 @@ Furthermore, increasing `ddim_steps` generally also gives higher quality samples
 Fast sampling (i.e. low values of `ddim_steps`) while retaining good quality can be achieved by using `--ddim_eta 0.0`.  
 Faster sampling (i.e. even lower values of `ddim_steps`) while retaining good quality can be achieved by using `--ddim_eta 0.0` and `--plms` (see [Pseudo Numerical Methods for Diffusion Models on Manifolds](https://arxiv.org/abs/2202.09778)).
 
+## Evaluating FID over Coco val 2017
+```
+sbatch eval.slurm
+```
+Once the execution of the SLURM script finishes, run:
+```
+srun --ntasks=1 --gpus-per-task=1 --time 23:59:59 python -m pytorch_fid outputs/txt2img-samples/coco/samples val2017_resized/
+```
+
 #### Beyond 256²
 
 For certain inputs, simply running the model in a convolutional fashion on larger features than it was trained on
@@ -173,6 +186,11 @@ python scripts/inpaint.py --indir data/inpainting_examples/ --outdir outputs/inp
 ```
 `indir` should contain images `*.png` and masks `<image_fname>_mask.png` like
 the examples provided in `data/inpainting_examples`.
+
+To run over newton and to get inpainting results for the examples provided, do:
+```
+srun --gpus-per-task=1 --ntasks=1 python inpaint.py --indir data/inpainting_examples/ --outdir outputs/inpainting_results
+```
 
 ## Class-Conditional ImageNet
 
