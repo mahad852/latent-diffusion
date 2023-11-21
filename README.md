@@ -1,4 +1,8 @@
-# Latent Diffusion Models
+pip install packaging==21.3
+pip install 'torchmetrics<0.8'
+pip install transformers==4.12
+pip install kornia
+pip install tensorboard# Latent Diffusion Models
 [arXiv](https://arxiv.org/abs/2112.10752) | [BibTeX](#bibtex)
 
 <p align="center">
@@ -39,6 +43,12 @@ and activated with:
 ```
 conda env create -f environment.yaml
 conda activate ldm
+
+pip install packaging==21.3
+pip install 'torchmetrics<0.8'
+pip install transformers==4.12
+pip install kornia
+pip install tensorboard
 ```
 
 # Pretrained Models
